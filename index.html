@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor de Ritmo Cardíaco</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f9;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    .bpm-container {
+      margin-top: 20px;
+      font-size: 24px;
+    }
+
+    .chart-container {
+      width: 80%;
+      margin: 30px auto;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #555;
+    }
+
+    .status.connected {
+      color: green;
+    }
+
+    .status.disconnected {
+      color: red;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Monitor de Ritmo Cardíaco</h1>
+  <div class="bpm-container">
+    Ritmo Cardíaco Actual: <span id="bpm">0</span> BPM
+  </div>
+  <div class="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+  <div class="status" id="status">Conectando...</div>
+
+  <script>
+    const ws = new WebSocket('ws://192.168.8.44:80/ws'); // Cambia <ESP32-IP> por la IP de tu ESP32
+    const bpmDisplay = document.getElementById('bpm');
+    const statusDisplay = document.getElementById('status');
+    let dataPoints = []; // Datos de BPM para la gráfica
+    const maxDataPoints = 100;
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: maxDataPoints }, (_, i) => i + 1),
+        datasets: [{
+          label: 'Ritmo Cardíaco (BPM)',
+          data: dataPoints,
+          borderColor: 'red',
+          borderWidth: 2,
+          fill: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { display: false },
+          y: { beginAtZero: true },
+        },
+      },
+    });
+
+    // Escucha eventos del WebSocket
+    ws.onopen = () => {
+      statusDisplay.textContent = 'Conectado';
+      statusDisplay.classList.add('connected');
+      statusDisplay.classList.remove('disconnected');
+    };
+
+    ws.onclose = () => {
+      statusDisplay.textContent = 'Desconectado';
+      statusDisplay.classList.add('disconnected');
+      statusDisplay.classList.remove('connected');
+    };
+
+    ws.onmessage = (event) => {
+      const bpm = parseInt(event.data, 10);
+      bpmDisplay.textContent = bpm;
+
+      // Agrega el BPM a los puntos de datos
+      if (dataPoints.length >= maxDataPoints) {
+        dataPoints.shift(); // Elimina el más antiguo
+      }
+      dataPoints.push(bpm);
+      chart.update();
+    };
+  </script>
+</body>
+</html>
