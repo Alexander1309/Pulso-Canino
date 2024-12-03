@@ -56,61 +56,69 @@
   <div class="chart-container">
     <canvas id="chart"></canvas>
   </div>
-  <div class="status" id="status">Conectando...</div>
+  <div class="status" id="status">Esperando datos...</div>
 
-  <script>
-    const ws = new WebSocket('ws://192.168.8.44:80/ws'); // Cambia <ESP32-IP> por la IP de tu ESP32
-    const bpmDisplay = document.getElementById('bpm');
-    const statusDisplay = document.getElementById('status');
-    let dataPoints = []; // Datos de BPM para la gráfica
-    const maxDataPoints = 100;
-
-    const ctx = document.getElementById('chart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: Array.from({ length: maxDataPoints }, (_, i) => i + 1),
-        datasets: [{
-          label: 'Ritmo Cardíaco (BPM)',
-          data: dataPoints,
-          borderColor: 'red',
-          borderWidth: 2,
-          fill: false,
-        }],
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { display: false },
-          y: { beginAtZero: true },
-        },
-      },
-    });
-
-    // Escucha eventos del WebSocket
-    ws.onopen = () => {
-      statusDisplay.textContent = 'Conectado';
-      statusDisplay.classList.add('connected');
-      statusDisplay.classList.remove('disconnected');
-    };
-
-    ws.onclose = () => {
-      statusDisplay.textContent = 'Desconectado';
-      statusDisplay.classList.add('disconnected');
-      statusDisplay.classList.remove('connected');
-    };
-
-    ws.onmessage = (event) => {
-      const bpm = parseInt(event.data, 10);
-      bpmDisplay.textContent = bpm;
-
-      // Agrega el BPM a los puntos de datos
-      if (dataPoints.length >= maxDataPoints) {
-        dataPoints.shift(); // Elimina el más antiguo
-      }
-      dataPoints.push(bpm);
-      chart.update();
-    };
-  </script>
+	<script>
+		const bpmDisplay = document.getElementById('bpm');
+		const statusDisplay = document.getElementById('status');
+		let dataPoints = [];
+		const maxDataPoints = 100;
+	
+		const ctx = document.getElementById('chart').getContext('2d');
+		const chart = new Chart(ctx, {
+			type: 'line',
+			data: {
+				labels: Array.from({ length: maxDataPoints }, (_, i) => i + 1),
+				datasets: [{
+					label: 'Ritmo Cardíaco (BPM)',
+					data: dataPoints,
+					borderColor: 'red',
+					borderWidth: 2,
+					fill: false,
+				}],
+			},
+			options: {
+				responsive: true,
+				scales: {
+					x: { display: false },
+					y: { beginAtZero: true },
+				},
+			},
+		});
+	
+		// Función para manejar la recepción de BPM desde el ESP32
+		async function fetchBPM() {
+			try {
+				// Cambiar a la IP de tu ESP32
+				const response = await fetch('http://192.168.8.44/api/get-bpm');
+				if (response.ok) {
+					const data = await response.json();
+					const bpm = data.bpm;
+	
+					bpmDisplay.textContent = bpm;
+					statusDisplay.textContent = 'Recibiendo datos';
+					statusDisplay.classList.add('connected');
+					statusDisplay.classList.remove('disconnected');
+	
+					// Actualizar la gráfica
+					if (dataPoints.length >= maxDataPoints) {
+						dataPoints.shift();
+					}
+					dataPoints.push(bpm);
+					chart.update();
+				} else {
+					throw new Error('Error al recibir BPM');
+				}
+			} catch (error) {
+				console.error(error);
+				statusDisplay.textContent = 'Desconectado';
+				statusDisplay.classList.add('disconnected');
+				statusDisplay.classList.remove('connected');
+			}
+		}
+	
+		// Actualizar datos cada segundo
+		setInterval(fetchBPM, 1000);
+	</script>
 </body>
 </html>
